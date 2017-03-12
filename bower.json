@@ -1,0 +1,21 @@
+{
+  "name": "purescript-dsl-store",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "output"
+  ],
+  "dependencies": {
+    "purescript-prelude": "^2.5.0",
+    "purescript-console": "^2.0.0",
+    "purescript-free": "^3.4.0",
+    "purescript-pairing": "^3.0.0",
+    "purescript-freet": "^2.1.0",
+    "purescript-transformers": "^2.2.0",
+    "purescript-aff": "^2.0.3"
+  },
+  "devDependencies": {
+    "purescript-psci-support": "^2.0.0"
+  }
+}
