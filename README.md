@@ -46,7 +46,7 @@ There are two interpreters
   pair :: forall x y. Command (x -> y) -> Run x -> y
   ```
 
-  We pair the `Free` and `Cofree` using the `explore` function from `Control.Comonad.Cofree` module.
+  We pair the `Free` and `Cofree` using the [explore](https://pursuit.purescript.org/packages/purescript-free/3.4.0/docs/Control.Comonad.Cofree#v:explore) function from `Control.Comonad.Cofree` module.
 
 * asynchronous one with computations in the `Aff` monad
   ```purescript
@@ -66,4 +66,4 @@ There are two interpreters
   pairInAff :: forall eff x y. Command (x -> y) -> RunAff eff x -> Aff eff y
   ```
 
-  Here we pair using a custom `exploreInAff` function (defined in `DSL.Utils`.
+  Here we pair using a custom `exploreInAff` [function](https://github.com/coot/purescript-dsl-example/blob/master/src/DSL/Utils.purs#L11).
