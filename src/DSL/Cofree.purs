@@ -12,18 +12,17 @@ module DSL.Cofree
 
 -- | (synchronous) interpreter for the `StoreDSL` using Cofree
 
-import Prelude (class Functor, Unit, bind, id, map, pure, show, unit, ($), (/=), (<$>), (<<<))
+import DSL.Types
+import Data.Array as A
 import Control.Comonad.Cofree (Cofree, explore)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, log)
 import Control.Monad.Free (liftF)
-import Data.Array as A
-import Data.Foldable (foldl, sequence_)
-import Data.Tuple (Tuple(..))
-import Data.Newtype (unwrap)
-
-import DSL.Types 
 import DSL.Utils (coiter)
+import Data.Foldable (foldl, sequence_)
+import Data.Newtype (unwrap)
+import Data.Tuple (Tuple(..))
+import Prelude (class Functor, Unit, bind, const, id, map, pure, show, unit, ($), (/=), (<$>), (<<<))
 
 addUser :: User -> StoreDSL Unit
 addUser u = liftF (Add u unit)
@@ -41,6 +40,7 @@ newtype Run a = Run
     { addUser :: User -> a
     , remove :: Int ->  a
     , changeName :: Int -> String -> a
+    -- getUsers could be just `Tuple (Array User) a`, but let's have a fancy function ;)
     , getUsers :: Unit -> Tuple (Array User) a
     , saveUser :: User -> a
     }
@@ -50,33 +50,47 @@ instance functorRun :: Functor Run where
         { addUser: \u -> f $ addUser u
         , remove: \uid -> f $ remove uid
         , changeName: \uid name -> f $ changeName uid name
-        , getUsers: map (map f) getUsers
+        , getUsers: (map f) <$> getUsers
         , saveUser: f <<< saveUser
         }
 
--- | interpreters type
+-- | interpreter's type
 type Interp a = Cofree Run a
 
--- | create the interpreter with initial state
+-- | create an interpreter with initial state
 mkInterp :: Array User -> Interp (Array User)
 mkInterp = coiter next
   where
+      addUser :: Array User -> User -> Array User
+      addUser st = A.snoc st
+
+      remove :: Array User -> Int -> Array User
+      remove st uid = A.filter (\u -> (unwrap u).id /= uid) st
+
+      changeName :: Array User -> Int -> String -> Array User
+      changeName st uid name =
+        let chname acu (User u) =
+                if u.id /= uid
+                    then A.snoc acu (User u)
+                    else A.snoc acu (User u { name = name })
+          in foldl chname [] st
+
+      getUsers :: Array User -> Unit -> Tuple (Array User) (Array User)
+      getUsers st = 
+          let users = [User {id: 2, name: "Pierre"}, User {id: 3, name: "Diogo"}]
+           in const $ Tuple users st
+
+      next :: Array User -> Run (Array User)
       next state = Run
-        { addUser: \u -> A.snoc state u
-        , remove: \uid -> A.filter (\u -> (unwrap u).id /= uid) state
-        , changeName: \uid name ->
-            let chname acu (User u) =
-                    if u.id /= uid
-                        then A.snoc acu (User u)
-                        else A.snoc acu (User u { name = name })
-             in foldl chname [] state
-        , getUsers: 
-            let users = [User {id: 2, name: "Pierre"}, User {id: 3, name: "Diogo"}]
-             in \_ -> Tuple users state
-        , saveUser: \user -> state
+        { addUser: addUser state
+        , remove: remove state
+        , changeName: changeName state
+        , getUsers: getUsers state
+        , saveUser: const state
         }
 
 
+-- | pairing between `Command (x -> y)` and `Run`
 pair :: forall x y. Command (x -> y) -> Run x -> y
 pair (Add u f) (Run interp) = f $ interp.addUser u
 pair (Remove uid f) (Run interp) = f $ interp.remove uid

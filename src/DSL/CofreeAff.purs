@@ -19,7 +19,7 @@ import Control.Comonad.Cofree (Cofree)
 import Control.Monad.Aff (Aff, later, runAff)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, log)
-import Control.Monad.Free (Free, liftF)
+import Control.Monad.Free (liftF)
 import Data.Foldable (foldl, sequence_)
 import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..))
@@ -64,36 +64,36 @@ mkAffInterp :: forall eff. Array User -> AffInterp eff (Array User)
 mkAffInterp state = coiter next state
   where
       addUser :: Array User -> User -> Aff eff (Array User)
-      addUser state u = later $ pure $ A.snoc state u
+      addUser st u = later $ pure $ A.snoc st u
 
       remove :: Array User -> Int -> Aff eff (Array User)
-      remove state uid = later $ pure (A.filter (\user -> (unwrap user).id /= uid) state)
+      remove st uid = later $ pure (A.filter (\user -> (unwrap user).id /= uid) st)
 
       changeName :: Array User -> Int -> String -> Aff eff (Array User)
-      changeName state uid name =
+      changeName st uid name =
         let
             chname :: Array User -> User -> Array User
             chname acu (User u) =
                 if u.id /= uid
                     then A.snoc acu (User u)
                     else A.snoc acu (User u { name = name })
-            in later $ pure (foldl chname [] state)
+            in later $ pure (foldl chname [] st)
 
       getUsers :: Array User -> Aff eff (Tuple (Array User) (Array User))
-      getUsers state =
+      getUsers st =
         let users = [User {id: 2, name: "Pierre"}, User {id: 3, name: "Diogo"}]
-         in later (pure $ Tuple users state)
+         in later (pure $ Tuple users st)
 
       saveUser :: Array User -> User -> Aff eff (Array User)
-      saveUser state user = later pure state
+      saveUser st user = later $ pure st
 
       next :: Array User -> RunAff eff (Array User)
-      next state = RunAff
-        { addUser: addUser state
-        , remove: remove state
-        , changeName: changeName state
-        , getUsers: getUsers state
-        , saveUser: saveUser state
+      next st = RunAff
+        { addUser: addUser st
+        , remove: remove st
+        , changeName: changeName st
+        , getUsers: getUsers st
+        , saveUser: saveUser st
         }
 
 pairInAff :: forall eff x y. Command (x -> y) -> RunAff eff x -> Aff eff y
