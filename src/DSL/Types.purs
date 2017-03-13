@@ -4,7 +4,7 @@ module DSL.Types
   , StoreDSL
   ) where
 
-import Prelude
+import Prelude (class Functor, class Show, show, (<<<), (<>))
 import Control.Monad.Free (Free)
 import Data.Newtype (class Newtype)
 

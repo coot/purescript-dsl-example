@@ -13,7 +13,6 @@ module DSL.CofreeAff
 -- | (asynchronous) interpreter for the `StoreDSL` using Cofree running
 -- | commputations inside Aff monad
 
-import Prelude (class Functor, Unit, bind, id, map, pure, show, unit, ($), (/=), (<$>), (<<<))
 import Data.Array as A
 import Control.Comonad.Cofree (Cofree)
 import Control.Monad.Aff (Aff, later, runAff)
@@ -23,9 +22,10 @@ import Control.Monad.Free (liftF)
 import Data.Foldable (foldl, sequence_)
 import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..))
+import Prelude (class Functor, Unit, bind, id, map, pure, show, unit, ($), (/=), (<$>), (<<<))
 
-import DSL.Types
-import DSL.Utils (exploreInAff, coiter)
+import DSL.Types (Command(..), StoreDSL, User(..))
+import DSL.Utils (coiter, exploreInAff)
 
 addUser :: User -> StoreDSL Unit
 addUser u = liftF (Add u unit)
