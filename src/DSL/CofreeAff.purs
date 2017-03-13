@@ -43,16 +43,16 @@ newtype RunAff eff a = RunAff
     { addUser :: User -> Aff eff a
     , remove :: Int ->  Aff eff a
     , changeName :: Int -> String -> Aff eff a
-    , getUsers :: Unit -> Aff eff (Tuple (Array User) a)
+    , getUsers :: Aff eff (Tuple (Array User) a)
     , saveUser :: User -> Aff eff a
     }
 
-instance functorCoComamnd :: Functor (RunAff eff) where
+instance functorRunAff :: Functor (RunAff eff) where
     map f (RunAff { addUser, remove, changeName, getUsers, saveUser }) = RunAff
         { addUser: \u -> f <$> addUser u
         , remove: \uid -> f <$> remove uid
         , changeName: \uid name -> f <$> changeName uid name
-        , getUsers: \u -> (map f) <$> getUsers u
+        , getUsers: (map f) <$> getUsers
         , saveUser: (map f) <<< saveUser
         }
 
@@ -64,10 +64,10 @@ mkAffInterp :: forall eff. Array User -> AffInterp eff (Array User)
 mkAffInterp state = coiter next state
   where
       addUser :: Array User -> User -> Aff eff (Array User)
-      addUser state u = pure $ A.snoc state u
+      addUser state u = later $ pure $ A.snoc state u
 
       remove :: Array User -> Int -> Aff eff (Array User)
-      remove state uid = pure $ A.filter (\u -> (unwrap u).id /= uid) state
+      remove state uid = later $ pure (A.filter (\user -> (unwrap user).id /= uid) state)
 
       changeName :: Array User -> Int -> String -> Aff eff (Array User)
       changeName state uid name =
@@ -77,15 +77,15 @@ mkAffInterp state = coiter next state
                 if u.id /= uid
                     then A.snoc acu (User u)
                     else A.snoc acu (User u { name = name })
-            in pure $ foldl chname [] state
+            in later $ pure (foldl chname [] state)
 
-      getUsers :: Array User -> Unit -> Aff eff (Tuple (Array User) (Array User))
+      getUsers :: Array User -> Aff eff (Tuple (Array User) (Array User))
       getUsers state =
         let users = [User {id: 2, name: "Pierre"}, User {id: 3, name: "Diogo"}]
-         in \_ -> later (pure $ Tuple users state)
+         in later (pure $ Tuple users state)
 
       saveUser :: Array User -> User -> Aff eff (Array User)
-      saveUser state user = pure state
+      saveUser state user = later pure state
 
       next :: Array User -> RunAff eff (Array User)
       next state = RunAff
@@ -100,7 +100,7 @@ pairInAff :: forall eff x y. Command (x -> y) -> RunAff eff x -> Aff eff y
 pairInAff (Add u f) (RunAff interp) = f <$> interp.addUser u
 pairInAff (Remove uid f) (RunAff interp) = f <$> interp.remove uid
 pairInAff (ChangeName uid name f) (RunAff interp) = f <$> interp.changeName uid name
-pairInAff (GetUsers f) (RunAff interp) = (\(Tuple users x) -> f users x) <$> interp.getUsers unit
+pairInAff (GetUsers f) (RunAff interp) = (\(Tuple users x) -> f users x) <$> interp.getUsers
 pairInAff (SaveUser user f) (RunAff interp) = f <$> interp.saveUser user
 
 task :: StoreDSL (Array User -> Array User)

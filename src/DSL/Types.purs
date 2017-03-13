@@ -6,7 +6,7 @@ module DSL.Types
 
 import Prelude
 import Control.Monad.Free (Free)
-import Data.Newtype (class Newtype, unwrap)
+import Data.Newtype (class Newtype)
 
 newtype User = User
     { id :: Int
