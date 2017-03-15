@@ -14,11 +14,10 @@ module DSL.Cofree
 
 import DSL.Types
 import Data.Array as A
-import Control.Comonad.Cofree (Cofree, explore)
+import Control.Comonad.Cofree (Cofree, explore, unfoldCofree)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, log)
 import Control.Monad.Free (liftF)
-import DSL.Utils (coiter)
 import Data.Foldable (foldl, sequence_)
 import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..))
@@ -59,7 +58,7 @@ type Interp a = Cofree Run a
 
 -- | create an interpreter with initial state
 mkInterp :: Array User -> Interp (Array User)
-mkInterp = coiter next
+mkInterp state = unfoldCofree state id next
   where
       addUser :: Array User -> User -> Array User
       addUser st = A.snoc st

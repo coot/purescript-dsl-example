@@ -14,18 +14,17 @@ module DSL.CofreeAff
 -- | commputations inside Aff monad
 
 import Data.Array as A
-import Control.Comonad.Cofree (Cofree)
+import Control.Comonad.Cofree (Cofree, unfoldCofree)
 import Control.Monad.Aff (Aff, later, runAff)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, log)
 import Control.Monad.Free (liftF)
+import DSL.Types (Command(..), StoreDSL, User(..))
+import DSL.Utils (exploreAff)
 import Data.Foldable (foldl, sequence_)
 import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..))
 import Prelude (class Functor, Unit, bind, id, map, pure, show, unit, ($), (/=), (<$>), (<<<))
-
-import DSL.Types (Command(..), StoreDSL, User(..))
-import DSL.Utils (coiter, exploreInAff)
 
 addUser :: User -> StoreDSL Unit
 addUser u = liftF (Add u unit)
@@ -61,7 +60,7 @@ type AffInterp eff a = Cofree (RunAff eff) a
 
 -- create the interpreter with initial state
 mkAffInterp :: forall eff. Array User -> AffInterp eff (Array User)
-mkAffInterp state = coiter next state
+mkAffInterp state = unfoldCofree state id next
   where
       addUser :: Array User -> User -> Aff eff (Array User)
       addUser st u = later $ pure $ A.snoc st u
@@ -117,5 +116,5 @@ runAffExample = do
     runAff 
       (\_ -> log "ups...")
       (\users -> log $ show users)
-      $ exploreInAff pairInAff task (mkAffInterp [User {id: 1, name: "Marcin"}])
+      $ exploreAff pairInAff task (mkAffInterp [User {id: 1, name: "Marcin"}])
     log "done"

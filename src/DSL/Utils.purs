@@ -8,14 +8,14 @@ import Control.Monad.State (StateT(..), runStateT)
 import Data.Tuple (Tuple(..))
 import Prelude (map, class Functor, ($), (<$>))
 
-exploreInAff
+exploreAff
   :: forall f g a b eff
    . (Functor f, Functor g)
   => (forall x y. f (x -> y) -> g x -> Aff eff y)
   -> Free f (a -> b)
   -> Cofree g a
   -> Aff eff b
-exploreInAff pair m w =
+exploreAff pair m w =
   map eval $ runStateT (runFreeM step m) w
   where
     step :: f (Free f (a -> b)) -> StateT (Cofree g a) (Aff eff) (Free f (a -> b))
@@ -23,6 +23,3 @@ exploreInAff pair m w =
 
     eval :: forall x y. Tuple (x -> y) (Cofree g x) -> y
     eval (Tuple f cof) = f (extract cof)
-
-coiter :: forall a f. (Functor f) => (a -> f a) -> a -> Cofree f a
-coiter next start = start :< (coiter next <$> next start)
