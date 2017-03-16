@@ -66,4 +66,4 @@ There are two interpreters
   pairInAff :: forall eff x y. Command (x -> y) -> RunAff eff x -> Aff eff y
   ```
 
-  Here we pair using a custom [`exploreInAff`](https://github.com/coot/purescript-dsl-example/blob/master/src/DSL/Utils.purs#L11) function.
+  Here we pair using a custom [`exploreAff`](https://github.com/coot/purescript-dsl-example/blob/master/src/DSL/Utils.purs#L11) function.
