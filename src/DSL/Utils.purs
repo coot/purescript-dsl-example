@@ -10,7 +10,8 @@ import Prelude (map, class Functor, ($), (<$>))
 
 exploreAff
   :: forall f g a b eff
-   . (Functor f, Functor g)
+  .  Functor f
+  => Functor g
   => (forall x y. f (x -> y) -> g x -> Aff eff y)
   -> Free f (a -> b)
   -> Cofree g a

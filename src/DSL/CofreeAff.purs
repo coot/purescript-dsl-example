@@ -13,9 +13,12 @@ module DSL.CofreeAff
 -- | (asynchronous) interpreter for the `StoreDSL` using Cofree running
 -- | commputations inside Aff monad
 
+import Prelude
+
 import Data.Array as A
+import Data.Time.Duration (Milliseconds(..))
 import Control.Comonad.Cofree (Cofree, unfoldCofree)
-import Control.Monad.Aff (Aff, later, runAff)
+import Control.Monad.Aff (Aff, delay, runAff)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, log)
 import Control.Monad.Free (liftF)
@@ -24,7 +27,6 @@ import DSL.Utils (exploreAff)
 import Data.Foldable (foldl, sequence_)
 import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..))
-import Prelude (class Functor, Unit, bind, id, map, pure, show, unit, ($), (/=), (<$>), (<<<))
 
 addUser :: User -> StoreDSL Unit
 addUser u = liftF (Add u unit)
@@ -48,11 +50,11 @@ newtype RunAff eff a = RunAff
 
 instance functorRunAff :: Functor (RunAff eff) where
     map f (RunAff { addUser, remove, changeName, getUsers, saveUser }) = RunAff
-        { addUser: \u -> f <$> addUser u
-        , remove: \uid -> f <$> remove uid
+        { addUser: map f <<< addUser
+        , remove: map f <<< remove
         , changeName: \uid name -> f <$> changeName uid name
-        , getUsers: (map f) <$> getUsers
-        , saveUser: (map f) <<< saveUser
+        , getUsers: map f <$> getUsers
+        , saveUser: map f <<< saveUser
         }
 
 -- | interpreter's type
@@ -60,13 +62,17 @@ type AffInterp eff a = Cofree (RunAff eff) a
 
 -- create the interpreter with initial state
 mkAffInterp :: forall eff. Array User -> AffInterp eff (Array User)
-mkAffInterp state = unfoldCofree state id next
+mkAffInterp state = unfoldCofree id next state
   where
       addUser :: Array User -> User -> Aff eff (Array User)
-      addUser st u = later $ pure $ A.snoc st u
+      addUser st u = do
+        delay $ Milliseconds 0.0
+        pure $ A.snoc st u
 
       remove :: Array User -> Int -> Aff eff (Array User)
-      remove st uid = later $ pure (A.filter (\user -> (unwrap user).id /= uid) st)
+      remove st uid = do
+        delay $ Milliseconds 0.0
+        pure (A.filter (\user -> (unwrap user).id /= uid) st)
 
       changeName :: Array User -> Int -> String -> Aff eff (Array User)
       changeName st uid name =
@@ -76,15 +82,21 @@ mkAffInterp state = unfoldCofree state id next
                 if u.id /= uid
                     then A.snoc acu (User u)
                     else A.snoc acu (User u { name = name })
-            in later $ pure (foldl chname [] st)
+            in do
+              delay $ Milliseconds 0.0
+              pure (foldl chname [] st)
 
       getUsers :: Array User -> Aff eff (Tuple (Array User) (Array User))
       getUsers st =
         let users = [User {id: 2, name: "Pierre"}, User {id: 3, name: "Diogo"}]
-         in later (pure $ Tuple users st)
+         in do
+           delay $ Milliseconds 0.0
+           pure $ Tuple users st
 
       saveUser :: Array User -> User -> Aff eff (Array User)
-      saveUser st user = later $ pure st
+      saveUser st user = do
+        delay $ Milliseconds 0.0
+        pure st
 
       next :: Array User -> RunAff eff (Array User)
       next st = RunAff
@@ -102,8 +114,8 @@ pairInAff (ChangeName uid name f) (RunAff interp) = f <$> interp.changeName uid 
 pairInAff (GetUsers f) (RunAff interp) = (\(Tuple users x) -> f users x) <$> interp.getUsers
 pairInAff (SaveUser user f) (RunAff interp) = f <$> interp.saveUser user
 
-task :: StoreDSL (Array User -> Array User)
-task = do
+cmds :: StoreDSL (Array User -> Array User)
+cmds = do
     users <- getUsers
     -- interp.getUser is adding users to the state
     sequence_ $ addUser <$> users
@@ -111,10 +123,13 @@ task = do
 
     pure id
 
+run :: forall eff. StoreDSL (Array User -> Array User) -> Array User -> Aff eff (Array User)
+run cmds state = exploreAff pairInAff cmds $ mkAffInterp state
+
 runAffExample :: forall e. Eff (console :: CONSOLE | e) Unit
 runAffExample = do
-    runAff 
+    _ <- runAff 
       (\_ -> log "ups...")
       (\users -> log $ show users)
-      $ exploreAff pairInAff task (mkAffInterp [User {id: 1, name: "Marcin"}])
+      $ run cmds [User {id: 1, name: "Marcin"}]
     log "done"

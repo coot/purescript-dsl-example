@@ -7,10 +7,12 @@ module DSL.Cofree
   , Run(..)
   , mkInterp
   , pair
-  , task
+  , cmds
   ) where
 
 -- | (synchronous) interpreter for the `StoreDSL` using Cofree
+
+import Prelude
 
 import DSL.Types
 import Data.Array as A
@@ -21,7 +23,6 @@ import Control.Monad.Free (liftF)
 import Data.Foldable (foldl, sequence_)
 import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..))
-import Prelude (class Functor, Unit, bind, const, id, map, pure, show, unit, ($), (/=), (<$>), (<<<))
 
 addUser :: User -> StoreDSL Unit
 addUser u = liftF (Add u unit)
@@ -58,7 +59,7 @@ type Interp a = Cofree Run a
 
 -- | create an interpreter with initial state
 mkInterp :: Array User -> Interp (Array User)
-mkInterp state = unfoldCofree state id next
+mkInterp state = unfoldCofree id next state
   where
       addUser :: Array User -> User -> Array User
       addUser st = A.snoc st
@@ -98,14 +99,17 @@ pair (GetUsers f) (Run interp) = case interp.getUsers unit of
     Tuple users x -> f users x
 pair (SaveUser user f) (Run interp) = f $ interp.saveUser user
 
-task :: StoreDSL (Array User -> Array User)
-task = do
+cmds :: StoreDSL (Array User -> Array User)
+cmds = do
     users <- getUsers
     -- interp.getUser is adding users to the state
     sequence_ $ addUser <$> users
     changeName 1 "coot"
     pure id
 
+run :: StoreDSL (Array User -> Array User) -> Array User -> Array User
+run cmds state = explore pair cmds $ mkInterp state
+
 runExample:: forall e. Eff (console :: CONSOLE | e) Unit
 runExample = do
-    log $ show $ explore pair task (mkInterp [User {id: 1, name: "Marcin"}])
+    log $ show $ run cmds [User {id: 1, name: "Marcin"}]
