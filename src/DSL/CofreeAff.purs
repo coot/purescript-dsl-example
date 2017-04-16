@@ -14,31 +14,31 @@ module DSL.CofreeAff
 -- | commputations inside Aff monad
 
 import Prelude
-
 import Data.Array as A
-import Data.Time.Duration (Milliseconds(..))
 import Control.Comonad.Cofree (Cofree, unfoldCofree)
 import Control.Monad.Aff (Aff, delay, runAff)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, log)
 import Control.Monad.Free (liftF)
-import DSL.Types (Command(..), StoreDSL, User(..))
+import DSL.Types (Command(..), Action(..), StoreDSL, User(..))
 import DSL.Utils (exploreAff)
+import Data.Coyoneda (Coyoneda(..), CoyonedaF(..), liftCoyoneda, unCoyoneda)
 import Data.Foldable (foldl, sequence_)
 import Data.Newtype (unwrap)
+import Data.Time.Duration (Milliseconds(..))
 import Data.Tuple (Tuple(..))
 
 addUser :: User -> StoreDSL Unit
-addUser u = liftF (Add u unit)
+addUser u = liftF $ Command $ liftCoyoneda (Add u unit)
 
 removeUser :: Int -> StoreDSL Unit
-removeUser uid = liftF (Remove uid unit)
+removeUser uid = liftF $ Command $ liftCoyoneda (Remove uid unit)
 
 changeName :: Int -> String -> StoreDSL Unit
-changeName uid name = liftF (ChangeName uid name unit)
+changeName uid name = liftF $ Command $ liftCoyoneda (ChangeName uid name unit)
 
 getUsers :: StoreDSL (Array User)
-getUsers = liftF $ GetUsers id
+getUsers = liftF $ Command $ liftCoyoneda (GetUsers id)
 
 newtype RunAff eff a = RunAff
     { addUser :: User -> Aff eff a
@@ -107,12 +107,23 @@ mkAffInterp state = unfoldCofree id next state
         , saveUser: saveUser st
         }
 
-pairInAff :: forall eff x y. Command (x -> y) -> RunAff eff x -> Aff eff y
-pairInAff (Add u f) (RunAff interp) = f <$> interp.addUser u
-pairInAff (Remove uid f) (RunAff interp) = f <$> interp.remove uid
-pairInAff (ChangeName uid name f) (RunAff interp) = f <$> interp.changeName uid name
-pairInAff (GetUsers f) (RunAff interp) = (\(Tuple users x) -> f users x) <$> interp.getUsers
-pairInAff (SaveUser user f) (RunAff interp) = f <$> interp.saveUser user
+pairInAff :: forall eff x y. Command (x ->y) -> RunAff eff x -> Aff eff y
+pairInAff (Command c) r = pairActionInAff (unCoyoneda unPack c) r
+  where
+    unPack :: forall i. (i -> x -> y) -> Action i -> Action (x -> y)
+    unPack k ai = case ai of
+               Add u i -> Add u (\x -> k i x)
+               Remove id i -> Remove id (\x -> k i x)
+               ChangeName id n i -> ChangeName id n (\x -> k i x)
+               GetUsers i -> GetUsers (k <<< i)
+               SaveUser u i -> SaveUser u (\x -> k i x)
+
+    pairActionInAff :: forall eff x y. Action (x -> y) -> RunAff eff x -> Aff eff y
+    pairActionInAff (Add u f) (RunAff interp) = f <$> interp.addUser u
+    pairActionInAff (Remove uid f) (RunAff interp) = f <$> interp.remove uid
+    pairActionInAff (ChangeName uid name f) (RunAff interp) = f <$> interp.changeName uid name
+    pairActionInAff (GetUsers f) (RunAff interp) = (\(Tuple users x) -> f users x) <$> interp.getUsers
+    pairActionInAff (SaveUser user f) (RunAff interp) = f <$> interp.saveUser user
 
 cmds :: StoreDSL (Array User -> Array User)
 cmds = do

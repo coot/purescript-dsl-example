@@ -13,35 +13,37 @@ module DSL.Cofree
 -- | (synchronous) interpreter for the `StoreDSL` using Cofree
 
 import Prelude
-
 import DSL.Types
 import Data.Array as A
 import Control.Comonad.Cofree (Cofree, explore, unfoldCofree)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, log)
 import Control.Monad.Free (liftF)
+import Data.Coyoneda (Coyoneda(..), liftCoyoneda, unCoyoneda)
+import Data.Exists (runExists)
 import Data.Foldable (foldl, sequence_)
-import Data.Newtype (unwrap)
+import Data.Identity (Identity(..))
+import Data.Newtype (wrap, unwrap)
 import Data.Tuple (Tuple(..))
+import Unsafe.Coerce (unsafeCoerce)
 
 addUser :: User -> StoreDSL Unit
-addUser u = liftF (Add u unit)
+addUser u = liftF $ Command $ liftCoyoneda (Add u unit)
 
 removeUser :: Int -> StoreDSL Unit
-removeUser uid = liftF (Remove uid unit)
+removeUser uid = liftF $ Command $ liftCoyoneda (Remove uid unit)
 
 changeName :: Int -> String -> StoreDSL Unit
-changeName uid name = liftF (ChangeName uid name unit)
+changeName uid name = liftF $ Command $ liftCoyoneda (ChangeName uid name unit)
 
 getUsers :: StoreDSL (Array User)
-getUsers = liftF $ GetUsers id
+getUsers = liftF $ Command $ liftCoyoneda (GetUsers id)
 
 newtype Run a = Run
     { addUser :: User -> a
     , remove :: Int ->  a
     , changeName :: Int -> String -> a
-    -- getUsers could be just `Tuple (Array User) a`, but let's have a fancy function ;)
-    , getUsers :: Unit -> Tuple (Array User) a
+    , getUsers :: Tuple (Array User) a
     , saveUser :: User -> a
     }
 
@@ -50,7 +52,7 @@ instance functorRun :: Functor Run where
         { addUser: \u -> f $ addUser u
         , remove: \uid -> f $ remove uid
         , changeName: \uid name -> f $ changeName uid name
-        , getUsers: (map f) <$> getUsers
+        , getUsers: f <$> getUsers
         , saveUser: f <<< saveUser
         }
 
@@ -75,10 +77,10 @@ mkInterp state = unfoldCofree id next state
                     else A.snoc acu (User u { name = name })
           in foldl chname [] st
 
-      getUsers :: Array User -> Unit -> Tuple (Array User) (Array User)
+      getUsers :: Array User -> Tuple (Array User) (Array User)
       getUsers st = 
           let users = [User {id: 2, name: "Pierre"}, User {id: 3, name: "Diogo"}]
-           in const $ Tuple users st
+           in Tuple users st
 
       next :: Array User -> Run (Array User)
       next state = Run
@@ -91,13 +93,24 @@ mkInterp state = unfoldCofree id next state
 
 
 -- | pairing between `Command (x -> y)` and `Run`
-pair :: forall x y. Command (x -> y) -> Run x -> y
-pair (Add u f) (Run interp) = f $ interp.addUser u
-pair (Remove uid f) (Run interp) = f $ interp.remove uid
-pair (ChangeName uid name f) (Run interp) = f $ interp.changeName uid name
-pair (GetUsers f) (Run interp) = case interp.getUsers unit of
-    Tuple users x -> f users x
-pair (SaveUser user f) (Run interp) = f $ interp.saveUser user
+pair :: forall x y. Command (x ->y) -> Run x -> y
+pair (Command c) r = pairAction (unCoyoneda unPack c) r
+  where
+    unPack :: forall i. (i -> x -> y) -> Action i -> Action (x -> y)
+    unPack k ai = case ai of
+               Add u i -> Add u (\x -> k i x)
+               Remove id i -> Remove id (\x -> k i x)
+               ChangeName id n i -> ChangeName id n (\x -> k i x)
+               GetUsers i -> GetUsers (k <<< i)
+               SaveUser u i -> SaveUser u (\x -> k i x)
+
+    pairAction :: forall x y. Action (x -> y) -> Run x -> y
+    pairAction (Add u f) (Run interp) = f $ interp.addUser u
+    pairAction (Remove uid f) (Run interp) = f $ interp.remove uid
+    pairAction (ChangeName uid name f) (Run interp) = f $ interp.changeName uid name
+    pairAction (GetUsers f) (Run interp) = case interp.getUsers of
+                                             Tuple users x -> f users x
+    pairAction (SaveUser user f) (Run interp) = f $ interp.saveUser user
 
 cmds :: StoreDSL (Array User -> Array User)
 cmds = do
