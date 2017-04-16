@@ -45,14 +45,7 @@ newtype Run a = Run
     , saveUser :: User -> a
     }
 
-instance functorRun :: Functor Run where
-    map f (Run { addUser, remove, changeName, getUsers, saveUser }) = Run
-        { addUser: \u -> f $ addUser u
-        , remove: \uid -> f $ remove uid
-        , changeName: \uid name -> f $ changeName uid name
-        , getUsers: (map f) <$> getUsers
-        , saveUser: f <<< saveUser
-        }
+derive instance functorRun :: Functor Run
 
 -- | interpreter's type
 type Interp a = Cofree Run a

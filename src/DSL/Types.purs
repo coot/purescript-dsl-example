@@ -26,12 +26,7 @@ data Command a = Add User a
                | GetUsers (Array User -> a)
                | SaveUser User a
 
-instance functorCommand :: Functor Command where
-    map f (Add u a) = Add u (f a)
-    map f (Remove uid a) = Remove uid (f a)
-    map f (ChangeName uid name a) = ChangeName uid name (f a)
-    map f (GetUsers a) = GetUsers (f <<< a)
-    map f (SaveUser u a) = SaveUser u (f a)
+derive instance functorCommand :: Functor Command
 
 -- | DSL
 type StoreDSL a = Free Command a

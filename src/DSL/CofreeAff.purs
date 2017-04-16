@@ -48,14 +48,7 @@ newtype RunAff eff a = RunAff
     , saveUser :: User -> Aff eff a
     }
 
-instance functorRunAff :: Functor (RunAff eff) where
-    map f (RunAff { addUser, remove, changeName, getUsers, saveUser }) = RunAff
-        { addUser: map f <<< addUser
-        , remove: map f <<< remove
-        , changeName: \uid name -> f <$> changeName uid name
-        , getUsers: map f <$> getUsers
-        , saveUser: map f <<< saveUser
-        }
+derive instance functorRunAff :: Functor (RunAff eff)
 
 -- | interpreter's type
 type AffInterp eff a = Cofree (RunAff eff) a
