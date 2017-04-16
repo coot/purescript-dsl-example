@@ -2,11 +2,15 @@ module DSL.Types
   ( User(..)
   , Command(..)
   , StoreDSL
+  , addUser
+  , removeUser
+  , changeName
+  , getUsers
   ) where
 
 import Prelude
 
-import Control.Monad.Free (Free)
+import Control.Monad.Free (Free, liftF)
 import Data.Newtype (class Newtype)
 
 newtype User = User
@@ -30,3 +34,15 @@ derive instance functorCommand :: Functor Command
 
 -- | DSL
 type StoreDSL a = Free Command a
+
+addUser :: User -> StoreDSL Unit
+addUser u = liftF (Add u unit)
+
+removeUser :: Int -> StoreDSL Unit
+removeUser uid = liftF (Remove uid unit)
+
+changeName :: Int -> String -> StoreDSL Unit
+changeName uid name = liftF (ChangeName uid name unit)
+
+getUsers :: StoreDSL (Array User)
+getUsers = liftF $ GetUsers id

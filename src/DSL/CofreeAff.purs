@@ -1,9 +1,5 @@
 module DSL.CofreeAff 
   ( runAffExample
-  , addUser
-  , removeUser
-  , changeName
-  , getUsers
   , RunAff(..)
   , AffInterp
   , mkAffInterp
@@ -21,24 +17,12 @@ import Control.Comonad.Cofree (Cofree, unfoldCofree)
 import Control.Monad.Aff (Aff, delay, runAff)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, log)
-import Control.Monad.Free (liftF)
-import DSL.Types (Command(..), StoreDSL, User(..))
+import DSL.Types (Command(..), StoreDSL, User(..), addUser, removeUser, changeName, getUsers)
 import DSL.Utils (exploreAff)
 import Data.Foldable (foldl, sequence_)
 import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..))
 
-addUser :: User -> StoreDSL Unit
-addUser u = liftF (Add u unit)
-
-removeUser :: Int -> StoreDSL Unit
-removeUser uid = liftF (Remove uid unit)
-
-changeName :: Int -> String -> StoreDSL Unit
-changeName uid name = liftF (ChangeName uid name unit)
-
-getUsers :: StoreDSL (Array User)
-getUsers = liftF $ GetUsers id
 
 newtype RunAff eff a = RunAff
     { addUser :: User -> Aff eff a

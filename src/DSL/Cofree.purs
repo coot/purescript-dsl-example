@@ -1,9 +1,5 @@
 module DSL.Cofree
   ( runExample
-  , addUser
-  , removeUser
-  , changeName
-  , getUsers
   , Run(..)
   , mkInterp
   , pair
@@ -14,27 +10,14 @@ module DSL.Cofree
 
 import Prelude
 
-import DSL.Types
+import DSL.Types (Command(..), StoreDSL, User(..), addUser, removeUser, changeName, getUsers)
 import Data.Array as A
 import Control.Comonad.Cofree (Cofree, explore, unfoldCofree)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, log)
-import Control.Monad.Free (liftF)
 import Data.Foldable (foldl, sequence_)
 import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..))
-
-addUser :: User -> StoreDSL Unit
-addUser u = liftF (Add u unit)
-
-removeUser :: Int -> StoreDSL Unit
-removeUser uid = liftF (Remove uid unit)
-
-changeName :: Int -> String -> StoreDSL Unit
-changeName uid name = liftF (ChangeName uid name unit)
-
-getUsers :: StoreDSL (Array User)
-getUsers = liftF $ GetUsers id
 
 newtype Run a = Run
     { addUser :: User -> a
