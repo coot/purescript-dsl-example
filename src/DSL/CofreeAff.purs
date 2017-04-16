@@ -111,12 +111,13 @@ pairInAff :: forall eff x y. Command (x ->y) -> RunAff eff x -> Aff eff y
 pairInAff (Command c) r = pairActionInAff (unCoyoneda unPack c) r
   where
     unPack :: forall i. (i -> x -> y) -> Action i -> Action (x -> y)
-    unPack k ai = case ai of
-               Add u i -> Add u (\x -> k i x)
-               Remove id i -> Remove id (\x -> k i x)
-               ChangeName id n i -> ChangeName id n (\x -> k i x)
-               GetUsers i -> GetUsers (k <<< i)
-               SaveUser u i -> SaveUser u (\x -> k i x)
+    unPack k ai =
+      case ai of
+        Add u i -> Add u (k i)
+        Remove id i -> Remove id (k i)
+        ChangeName id n i -> ChangeName id n (k i)
+        GetUsers i -> GetUsers (k <<< i)
+        SaveUser u i -> SaveUser u (k i)
 
     pairActionInAff :: forall eff x y. Action (x -> y) -> RunAff eff x -> Aff eff y
     pairActionInAff (Add u f) (RunAff interp) = f <$> interp.addUser u

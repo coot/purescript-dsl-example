@@ -97,12 +97,13 @@ pair :: forall x y. Command (x ->y) -> Run x -> y
 pair (Command c) r = pairAction (unCoyoneda unPack c) r
   where
     unPack :: forall i. (i -> x -> y) -> Action i -> Action (x -> y)
-    unPack k ai = case ai of
-               Add u i -> Add u (\x -> k i x)
-               Remove id i -> Remove id (\x -> k i x)
-               ChangeName id n i -> ChangeName id n (\x -> k i x)
-               GetUsers i -> GetUsers (k <<< i)
-               SaveUser u i -> SaveUser u (\x -> k i x)
+    unPack k ai =
+      case ai of
+        Add u i -> Add u (k i)
+        Remove id i -> Remove id (k i)
+        ChangeName id n i -> ChangeName id n (k i)
+        GetUsers i -> GetUsers (k <<< i)
+        SaveUser u i -> SaveUser u (k i)
 
     pairAction :: forall x y. Action (x -> y) -> Run x -> y
     pairAction (Add u f) (Run interp) = f $ interp.addUser u
