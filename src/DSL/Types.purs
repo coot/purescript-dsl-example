@@ -1,7 +1,7 @@
 module DSL.Types 
   ( User(..)
-  , Command(..)
   , Action(..)
+  , Command
   , StoreDSL
   ) where
 
@@ -45,12 +45,7 @@ data Action a
   | GetUsers (Array User -> a)
   | SaveUser User a
 
-newtype Command a = Command (Coyoneda Action a)
-
-derive instance newtypeCommand :: Newtype (Command a) _
-
-instance functorCommand :: Functor Command where
-  map f (Command c) = Command $ f <$> c
+type Command = Coyoneda Action
 
 -- | DSL
 type StoreDSL a = Free Command a

@@ -20,7 +20,7 @@ import Control.Monad.Aff (Aff, delay, runAff)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, log)
 import Control.Monad.Free (liftF)
-import DSL.Types (Command(..), Action(..), StoreDSL, User(..))
+import DSL.Types (Command, Action(..), StoreDSL, User(..))
 import DSL.Utils (exploreAff)
 import Data.Coyoneda (Coyoneda(..), CoyonedaF(..), liftCoyoneda, unCoyoneda)
 import Data.Foldable (foldl, sequence_)
@@ -29,16 +29,16 @@ import Data.Time.Duration (Milliseconds(..))
 import Data.Tuple (Tuple(..))
 
 addUser :: User -> StoreDSL Unit
-addUser u = liftF $ Command $ liftCoyoneda (Add u unit)
+addUser u = liftF $ liftCoyoneda (Add u unit)
 
 removeUser :: Int -> StoreDSL Unit
-removeUser uid = liftF $ Command $ liftCoyoneda (Remove uid unit)
+removeUser uid = liftF $ liftCoyoneda (Remove uid unit)
 
 changeName :: Int -> String -> StoreDSL Unit
-changeName uid name = liftF $ Command $ liftCoyoneda (ChangeName uid name unit)
+changeName uid name = liftF $ liftCoyoneda (ChangeName uid name unit)
 
 getUsers :: StoreDSL (Array User)
-getUsers = liftF $ Command $ liftCoyoneda (GetUsers id)
+getUsers = liftF $ liftCoyoneda (GetUsers id)
 
 newtype RunAff eff a = RunAff
     { addUser :: User -> Aff eff a
@@ -108,7 +108,7 @@ mkAffInterp state = unfoldCofree id next state
         }
 
 pairInAff :: forall eff x y. Command (x ->y) -> RunAff eff x -> Aff eff y
-pairInAff (Command c) r = pairActionInAff (unCoyoneda unPack c) r
+pairInAff c r = pairActionInAff (unCoyoneda unPack c) r
   where
     unPack :: forall i. (i -> x -> y) -> Action i -> Action (x -> y)
     unPack k ai =

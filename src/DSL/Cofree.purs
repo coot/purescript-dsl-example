@@ -28,16 +28,16 @@ import Data.Tuple (Tuple(..))
 import Unsafe.Coerce (unsafeCoerce)
 
 addUser :: User -> StoreDSL Unit
-addUser u = liftF $ Command $ liftCoyoneda (Add u unit)
+addUser u = liftF $ liftCoyoneda (Add u unit)
 
 removeUser :: Int -> StoreDSL Unit
-removeUser uid = liftF $ Command $ liftCoyoneda (Remove uid unit)
+removeUser uid = liftF $ liftCoyoneda (Remove uid unit)
 
 changeName :: Int -> String -> StoreDSL Unit
-changeName uid name = liftF $ Command $ liftCoyoneda (ChangeName uid name unit)
+changeName uid name = liftF $ liftCoyoneda (ChangeName uid name unit)
 
 getUsers :: StoreDSL (Array User)
-getUsers = liftF $ Command $ liftCoyoneda (GetUsers id)
+getUsers = liftF $ liftCoyoneda (GetUsers id)
 
 newtype Run a = Run
     { addUser :: User -> a
@@ -94,7 +94,7 @@ mkInterp state = unfoldCofree id next state
 
 -- | pairing between `Command (x -> y)` and `Run`
 pair :: forall x y. Command (x ->y) -> Run x -> y
-pair (Command c) r = pairAction (unCoyoneda unPack c) r
+pair c r = pairAction (unCoyoneda unPack c) r
   where
     unPack :: forall i. (i -> x -> y) -> Action i -> Action (x -> y)
     unPack k ai =
