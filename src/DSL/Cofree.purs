@@ -92,8 +92,8 @@ mkInterp state = unfoldCofree id next state
         }
 
 
--- | pairing between `Command (x -> y)` and `Run`
-pair :: forall x y. Command (x ->y) -> Run x -> y
+-- | pairing between `Command (x -> y)` and `Run x`
+pair :: forall x y. Command (x -> y) -> Run x -> y
 pair c r = pairAction (unCoyoneda unPack c) r
   where
     unPack :: forall i. (i -> x -> y) -> Action i -> Action (x -> y)
