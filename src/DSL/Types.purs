@@ -6,6 +6,7 @@ module DSL.Types
   , removeUser
   , changeName
   , getUsers
+  , getUser
   ) where
 
 import Prelude
@@ -28,6 +29,7 @@ data Command a = Add User a
                | Remove Int a
                | ChangeName Int String a
                | GetUsers (Array User -> a)
+               | GetUser (User -> a)
                | SaveUser User a
 
 derive instance functorCommand :: Functor Command
@@ -35,14 +37,17 @@ derive instance functorCommand :: Functor Command
 -- | DSL
 type StoreDSL a = Free Command a
 
-addUser :: User -> StoreDSL Unit
-addUser u = liftF (Add u unit)
+addUser :: User -> StoreDSL (Array User -> Array User)
+addUser u = liftF (Add u id)
 
-removeUser :: Int -> StoreDSL Unit
-removeUser uid = liftF (Remove uid unit)
+removeUser :: Int -> StoreDSL (Array User -> Array User)
+removeUser uid = liftF (Remove uid id)
 
-changeName :: Int -> String -> StoreDSL Unit
-changeName uid name = liftF (ChangeName uid name unit)
+changeName :: Int -> String -> StoreDSL (Array User -> Array User)
+changeName uid name = liftF (ChangeName uid name id)
 
 getUsers :: StoreDSL (Array User)
 getUsers = liftF $ GetUsers id
+
+getUser :: StoreDSL User
+getUser = liftF $ GetUser id

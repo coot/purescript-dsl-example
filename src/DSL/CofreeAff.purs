@@ -17,7 +17,7 @@ import Control.Comonad.Cofree (Cofree, unfoldCofree)
 import Control.Monad.Aff (Aff, delay, runAff)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, log)
-import DSL.Types (Command(..), StoreDSL, User(..), addUser, removeUser, changeName, getUsers)
+import DSL.Types (Command(..), StoreDSL, User(..), addUser, changeName, getUsers, getUser)
 import DSL.Utils (exploreAff)
 import Data.Foldable (foldl, sequence_)
 import Data.Newtype (unwrap)
@@ -29,6 +29,7 @@ newtype RunAff eff a = RunAff
     , remove :: Int ->  Aff eff a
     , changeName :: Int -> String -> Aff eff a
     , getUsers :: Aff eff (Tuple (Array User) a)
+    , getUser :: Aff eff (Tuple User a)
     , saveUser :: User -> Aff eff a
     }
 
@@ -70,6 +71,13 @@ mkAffInterp state = unfoldCofree id next state
            delay $ Milliseconds 0.0
            pure $ Tuple users st
 
+      getUser :: Array User -> Aff eff (Tuple User (Array User))
+      getUser st =
+        let user = User {id: 4, name: "Wojtek"}
+        in do
+          delay $ Milliseconds 0.0
+          pure $ Tuple user st
+
       saveUser :: Array User -> User -> Aff eff (Array User)
       saveUser st user = do
         delay $ Milliseconds 0.0
@@ -81,6 +89,7 @@ mkAffInterp state = unfoldCofree id next state
         , remove: remove st
         , changeName: changeName st
         , getUsers: getUsers st
+        , getUser: getUser st
         , saveUser: saveUser st
         }
 
@@ -89,6 +98,7 @@ pairInAff (Add u f) (RunAff interp) = f <$> interp.addUser u
 pairInAff (Remove uid f) (RunAff interp) = f <$> interp.remove uid
 pairInAff (ChangeName uid name f) (RunAff interp) = f <$> interp.changeName uid name
 pairInAff (GetUsers f) (RunAff interp) = (\(Tuple users x) -> f users x) <$> interp.getUsers
+pairInAff (GetUser f) (RunAff interp) = (\(Tuple user x) -> f user x) <$> interp.getUser
 pairInAff (SaveUser user f) (RunAff interp) = f <$> interp.saveUser user
 
 cmds :: StoreDSL (Array User -> Array User)
@@ -96,12 +106,12 @@ cmds = do
     users <- getUsers
     -- interp.getUser is adding users to the state
     sequence_ $ addUser <$> users
+    u <- getUser
+    _ <- addUser u
     changeName 1 "coot"
 
-    pure id
-
 run :: forall eff. StoreDSL (Array User -> Array User) -> Array User -> Aff eff (Array User)
-run cmds state = exploreAff pairInAff cmds $ mkAffInterp state
+run cmds_ state = exploreAff pairInAff cmds_ $ mkAffInterp state
 
 runAffExample :: forall e. Eff (console :: CONSOLE | e) Unit
 runAffExample = do

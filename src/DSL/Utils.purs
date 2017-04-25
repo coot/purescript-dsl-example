@@ -1,12 +1,12 @@
 module DSL.Utils where
 
 import Control.Comonad (extract)
-import Control.Comonad.Cofree (Cofree, tail, (:<))
+import Control.Comonad.Cofree (Cofree, tail)
 import Control.Monad.Aff (Aff)
 import Control.Monad.Free (Free, runFreeM)
 import Control.Monad.State (StateT(..), runStateT)
 import Data.Tuple (Tuple(..))
-import Prelude (map, class Functor, ($), (<$>))
+import Prelude (map, class Functor, ($))
 
 exploreAff
   :: forall f g a b eff

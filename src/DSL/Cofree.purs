@@ -10,7 +10,7 @@ module DSL.Cofree
 
 import Prelude
 
-import DSL.Types (Command(..), StoreDSL, User(..), addUser, removeUser, changeName, getUsers)
+import DSL.Types (Command(..), StoreDSL, User(..), addUser, changeName, getUsers)
 import Data.Array as A
 import Control.Comonad.Cofree (Cofree, explore, unfoldCofree)
 import Control.Monad.Eff (Eff)
@@ -25,6 +25,7 @@ newtype Run a = Run
     , changeName :: Int -> String -> a
     -- getUsers could be just `Tuple (Array User) a`, but let's have a fancy function ;)
     , getUsers :: Unit -> Tuple (Array User) a
+    , getUser :: Tuple User a
     , saveUser :: User -> a
     }
 
@@ -56,13 +57,17 @@ mkInterp state = unfoldCofree id next state
           let users = [User {id: 2, name: "Pierre"}, User {id: 3, name: "Diogo"}]
            in const $ Tuple users st
 
+      getUser :: Array User -> Tuple User (Array User)
+      getUser st = Tuple (User {id: 4, name: "Wojtek"}) st
+
       next :: Array User -> Run (Array User)
-      next state = Run
-        { addUser: addUser state
-        , remove: remove state
-        , changeName: changeName state
-        , getUsers: getUsers state
-        , saveUser: const state
+      next st = Run
+        { addUser: addUser st
+        , remove: remove st
+        , changeName: changeName st
+        , getUsers: getUsers st
+        , getUser: getUser st
+        , saveUser: const st
         }
 
 
@@ -74,6 +79,7 @@ pair (ChangeName uid name f) (Run interp) = f $ interp.changeName uid name
 pair (GetUsers f) (Run interp) = case interp.getUsers unit of
     Tuple users x -> f users x
 pair (SaveUser user f) (Run interp) = f $ interp.saveUser user
+pair (GetUser f) (Run interp) = (\(Tuple u x) -> f u x) interp.getUser
 
 cmds :: StoreDSL (Array User -> Array User)
 cmds = do
@@ -81,10 +87,9 @@ cmds = do
     -- interp.getUser is adding users to the state
     sequence_ $ addUser <$> users
     changeName 1 "coot"
-    pure id
 
 run :: StoreDSL (Array User -> Array User) -> Array User -> Array User
-run cmds state = explore pair cmds $ mkInterp state
+run cmds_ state = explore pair cmds_ $ mkInterp state
 
 runExample:: forall e. Eff (console :: CONSOLE | e) Unit
 runExample = do
